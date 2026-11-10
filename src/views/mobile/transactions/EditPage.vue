@@ -9,6 +9,22 @@
             </f7-nav-right>
         </f7-navbar>
 
+        <f7-block class="book-entry-choice" v-if="!loading && pageTypeAndMode?.type === TransactionEditPageType.Transaction && transaction.type !== TransactionType.ModifyBalance">
+            <h2>这笔是公账，还是私账？</h2>
+            <p v-if="mode === TransactionEditPageMode.View">{{ bookScopeLabel(currentBookScope) }}</p>
+            <template v-else>
+                <div class="book-entry-buttons" role="group" aria-label="这笔账的归属">
+                    <button type="button" :aria-pressed="currentBookScope === 'business'" :disabled="!bookTagsReady || submitting"
+                            @click="chooseBook('business')"><strong>公账</strong><span>生意的钱</span></button>
+                    <button type="button" :aria-pressed="currentBookScope === 'personal'" :disabled="!bookTagsReady || submitting"
+                            @click="chooseBook('personal')"><strong>私账</strong><span>个人的钱</span></button>
+                </div>
+                <p role="status" aria-live="polite">当前：{{ bookScopeLabel(currentBookScope) }}</p>
+                <p v-if="!bookTagsReady"><f7-link href="/">请先回首页启用公账 / 私账；标签缺失或重名时，请检查标签设置。</f7-link></p>
+                <p>同一收付款账户可以记不同归属；请核对金额、分类和账户。</p>
+            </template>
+        </f7-block>
+
         <f7-block :class="{ 'subnav-segmented-bar': true, 'disabled': loading }">
             <f7-segmented strong round :class="{ 'readonly': pageTypeAndMode?.type === TransactionEditPageType.Transaction && mode !== TransactionEditPageMode.Add && mode !== TransactionEditPageMode.Edit }">
                 <f7-button round :text="tt('Expense')" :active="transaction.type === TransactionType.Expense"
@@ -441,6 +457,12 @@
             ></f7-list-input>
         </f7-list>
 
+        <f7-block v-if="!loading && pageTypeAndMode?.type === TransactionEditPageType.Transaction && transaction.type !== TransactionType.ModifyBalance && mode !== TransactionEditPageMode.View">
+            <p class="book-entry-choice">本笔归属：{{ bookScopeLabel(currentBookScope) }}</p>
+            <f7-button large fill class="book-entry-save" :disabled="!currentBookScope || !bookTagsReady || inputIsEmpty || submitting || recognizing"
+                       @click="save(AfterSaveAction.GoBack)">保存这笔{{ currentBookScope === 'business' ? '公账' : currentBookScope === 'personal' ? '私账' : '账' }}</f7-button>
+        </f7-block>
+
         <f7-actions close-by-outside-click close-on-escape :opened="showGeoLocationActionSheet" @actions:closed="showGeoLocationActionSheet = false">
             <f7-actions-group>
                 <f7-actions-button v-if="mode !== TransactionEditPageMode.View" @click="updateGeoLocation(true)">{{ tt('Update Geographic Location') }}</f7-actions-button>
@@ -576,6 +598,7 @@ import {
 } from '@/lib/server_settings.ts';
 import { compressJpgImageByQuality } from '@/lib/ui/common.ts';
 import logger from '@/lib/logger.ts';
+import { bookTagIds, transactionBookScope, setTransactionBookScope, bookScopeLabel, type BookScope } from '@/lib/book_scope.ts';
 
 const props = defineProps<{
     f7route: Router.Route;
@@ -662,6 +685,14 @@ const userStore = useUserStore();
 const accountsStore = useAccountsStore();
 const transactionCategoriesStore = useTransactionCategoriesStore();
 const transactionTagsStore = useTransactionTagsStore();
+const currentBookScope = computed(() => transactionBookScope(transaction.value.tagIds, transactionTagsStore.allTransactionTagsMap));
+const bookTagsReady = computed(() => {
+    const ids = bookTagIds(transactionTagsStore.allTransactionTagsMap);
+    return !!ids.business && !!ids.personal;
+});
+function chooseBook(scope: BookScope): void {
+    transaction.value.tagIds = setTransactionBookScope(transaction.value.tagIds, scope, transactionTagsStore.allTransactionTagsMap);
+}
 const transactionsStore = useTransactionsStore();
 const transactionTemplatesStore = useTransactionTemplatesStore();
 
@@ -1096,6 +1127,15 @@ function save(afterAction: AfterSaveAction): void {
         return;
     }
 
+    if (pageTypeAndMode?.type === TransactionEditPageType.Transaction && transaction.value.type !== TransactionType.ModifyBalance) {
+        if (!bookTagsReady.value || !currentBookScope.value) {
+            showAlert('请先启用公私账，并为这笔账选择公账或私账。每笔账只能选一个归属。');
+            return;
+        }
+        // Normalise at the common save path as tag sheets, templates and AI may also change tags.
+        transaction.value.tagIds = setTransactionBookScope(transaction.value.tagIds, currentBookScope.value, transactionTagsStore.allTransactionTagsMap);
+    }
+
     const problemMessage = inputEmptyProblemMessage.value;
 
     if (problemMessage) {
@@ -1482,6 +1522,14 @@ init();
 </script>
 
 <style>
+.book-entry-choice { font-size: 18px; line-height: 1.6; }
+.book-entry-choice h2 { font-size: 24px; }
+.book-entry-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.book-entry-buttons button { min-height: 96px; padding: 12px; border: 2px solid var(--f7-theme-color); border-radius: 14px; color: var(--f7-text-color); background: var(--f7-card-bg-color); }
+.book-entry-buttons strong { display: block; font-size: 28px; }
+.book-entry-buttons span { display: block; font-size: 18px; }
+.book-entry-buttons button[aria-pressed="true"] { outline: 3px solid var(--f7-theme-color); outline-offset: 3px; }
+.book-entry-save { min-height: 56px; font-size: 20px; }
 .category-separate-icon.icon {
     margin-inline-start: 5px;
     margin-inline-end: 5px;

@@ -278,6 +278,7 @@
                                             </div>
                                         </div>
                                         <div class="item-footer">
+                                            <div class="book-entry-label">{{ bookScopeLabel(transactionBookScope(transaction.tagIds, allTransactionTags)) }}</div>
                                             <div class="transaction-tags" v-if="showTagInTransactionListPage && transaction.tagIds && transaction.tagIds.length">
                                                 <f7-chip media-text-color="var(--f7-chip-text-color)" class="transaction-tag"
                                                          :text="allTransactionTags[tagId]?.name"
@@ -716,6 +717,7 @@ import {
     transactionTypeToCategoryType
 } from '@/lib/category.ts';
 import { allTransactionPictures } from '@/lib/transaction.ts';
+import { transactionBookScope, bookScopeLabel } from '@/lib/book_scope.ts';
 
 const props = defineProps<{
     f7route: Router.Route;
@@ -1576,6 +1578,7 @@ init();
 </script>
 
 <style>
+.book-entry-label { font-size: 16px; font-weight: 700; padding: 4px 0; color: var(--f7-text-color); }
 .transaction-list-toolbar .toolbar-inner {
     padding-inline-end: 8px;
 }
