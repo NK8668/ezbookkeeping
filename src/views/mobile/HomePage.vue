@@ -4,7 +4,12 @@
             <f7-nav-title :title="tt('global.app.title')"></f7-nav-title>
         </f7-navbar>
 
-        <overview-dashboard :layout="layout" :loading="loading" @navigate="onNavigate" />
+        <simple-bookkeeping />
+        <f7-block>
+            <f7-button large outline @click="showAdvancedOverview = !showAdvancedOverview">{{ showAdvancedOverview ? '收起全部账户统计' : '更多功能：全部账户统计' }}</f7-button>
+            <p v-if="showAdvancedOverview">以下是全部账户统计，包含公账、私账和未归类账户。</p>
+        </f7-block>
+        <overview-dashboard v-if="showAdvancedOverview" :layout="layout" :loading="loading" @navigate="onNavigate" />
 
         <f7-toolbar tabbar icons bottom class="main-tabbar">
             <f7-link class="link" href="/transaction/list" :aria-label="tt('Details')">
@@ -70,6 +75,7 @@
 <script setup lang="ts">
 import AIImageRecognitionSheet, { type AIImageRecognitionResult } from '@/components/mobile/AIImageRecognitionSheet.vue';
 import OverviewDashboard from './overview/OverviewDashboard.vue';
+import SimpleBookkeeping from '@/components/mobile/SimpleBookkeeping.vue';
 
 import { ref, computed, useTemplateRef } from 'vue';
 import type { Router } from 'framework7/types';
@@ -131,6 +137,7 @@ const overviewStore = useOverviewStore();
 const aiImageRecognitionSheet = useTemplateRef<AIImageRecognitionSheetType>('aiImageRecognitionSheet');
 
 const loading = ref<boolean>(true);
+const showAdvancedOverview = ref(false);
 const showTransactionTemplatePopover = ref<boolean>(false);
 const showAIReceiptImageRecognitionSheet = ref<boolean>(false);
 
