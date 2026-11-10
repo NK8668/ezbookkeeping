@@ -60,10 +60,18 @@ function addLink(type: number): string {
     const id = selected.value ? ids.value[selected.value] : null;
     return `/transaction/add?tagIds=${encodeURIComponent(id || '')}&type=${type}&noTransactionDraft=true`;
 }
+async function refreshTags(): Promise<void> {
+    try {
+        await tagsStore.loadAllTags({ force: true });
+    } catch (e) {
+        // The upstream store rejects unchanged results after successfully loading them.
+        if (!e || typeof e !== 'object' || !('isUpToDate' in e) || e.isUpToDate !== true) throw e;
+    }
+}
 async function load(): Promise<void> {
     loading.value = true;
     error.value = '';
-    try { await tagsStore.loadAllTags({ force: true }); }
+    try { await refreshTags(); }
     catch { error.value = '读取失败，请检查网络后重试。'; }
     finally { loading.value = false; }
 }
@@ -72,7 +80,7 @@ async function enable(): Promise<void> {
     enabling.value = true;
     error.value = '';
     try {
-        await tagsStore.loadAllTags({ force: true });
+        await refreshTags();
         for (const scope of ['business', 'personal'] as BookScope[]) {
             const matches = Object.values(tagsStore.allTransactionTagsMap).filter(tag => tag.name === BOOK_TAG_NAMES[scope]);
             if (matches.length > 1) throw new Error('存在重名的账本标签，请在标签设置中核对后再启用。');
@@ -80,7 +88,7 @@ async function enable(): Promise<void> {
         }
     } catch (e) {
         // A second device may have created a tag in the meantime. Reload instead of guessing IDs.
-        try { await tagsStore.loadAllTags({ force: true }); } catch { /* Keep the actionable error below. */ }
+        try { await refreshTags(); } catch { /* Keep the actionable error below. */ }
         if (!ready.value) error.value = e instanceof Error ? e.message : '启用失败，请检查网络后重新读取并再试。';
     } finally { enabling.value = false; }
 }
